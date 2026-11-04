@@ -8,12 +8,25 @@ import { db, peso, type MemberStatus, type Staff } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { createCheckout } from "@/lib/paymongo";
 import { runReminders } from "@/lib/reminders";
+import { DEMO } from "@/lib/demo";
 
 export async function login(_: unknown, form: FormData) {
   const { data: staff } = await db.from("staff").select("id, role, pin_hash").eq("id", String(form.get("staff_id"))).single();
   if (!staff || !checkPin(String(form.get("pin")), staff.pin_hash)) return { error: "Wrong PIN. Try again." };
   await startSession(staff.id);
   redirect(staff.role === "owner" ? "/" : "/checkin");
+}
+
+// Public demo (/demo): one-click login so prospects can explore without a PIN.
+const DEMO_PATHS = ["/", "/checkin", "/members", "/payments", "/outbox"];
+
+export async function demoLogin(role: "owner" | "desk", to: string) {
+  if (!DEMO) redirect("/login");
+  const { data: staff } = await db.from("staff").select("id").eq("role", role).order("name").limit(1).maybeSingle();
+  if (!staff) redirect("/login");
+  await setKiosk(false);
+  await startSession(staff.id);
+  redirect(DEMO_PATHS.includes(to) ? to : "/");
 }
 
 export async function logout() {

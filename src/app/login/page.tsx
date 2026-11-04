@@ -15,6 +15,9 @@ export default function Page() {
         <Suspense fallback={<Skeleton className="h-48 w-full" />}>
           <StaffPicker />
         </Suspense>
+        <p className="muted mt-4 text-center">
+          Just looking? <a href="/demo" className="font-medium text-primary underline">Try the demo</a>, no PIN needed.
+        </p>
       </CardContent>
     </Card>
   );
