@@ -1,69 +1,118 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Suspense } from "react";
+import { requireStaff } from "@/lib/auth";
+import { db, peso, phStartOf, phToday, type MemberStatus } from "@/lib/db";
+import { dailySummary } from "@/lib/reminders";
+import { MessageSquareIcon, PhoneIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageSkeleton } from "@/components/page-skeleton";
 
-export default function Home() {
+export default function Page() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <Suspense fallback={<PageSkeleton />}>
+      <Dashboard />
+    </Suspense>
+  );
+}
+
+async function Dashboard() {
+  const staff = await requireStaff("owner");
+  const today = phToday();
+  const monthStart = phStartOf(today.slice(0, 8) + "01");
+
+  const [summary, { data: atRisk }, { data: monthPayments }, { data: reminders }, { count: overrides }] = await Promise.all([
+    dailySummary(staff.gym_id, today),
+    db.from("member_status").select("*").eq("gym_id", staff.gym_id).gte("days_left", -7).lte("days_left", 3).order("days_left"),
+    db.from("payments").select("member_id, amount, created_at").eq("gym_id", staff.gym_id).eq("kind", "membership").is("voided_at", null).gte("created_at", monthStart),
+    db.from("sms_log").select("member_id, created_at").eq("gym_id", staff.gym_id).in("kind", ["expiring", "expired"]),
+    db.from("checkins").select("id", { count: "exact", head: true }).eq("gym_id", staff.gym_id).eq("override", true).gte("created_at", phStartOf(today)),
+  ]);
+
+  // "Recovered": a renewal paid within 14 days after that member got a reminder.
+  const DAY = 86_400_000;
+  const recovered = (monthPayments ?? []).filter((p) =>
+    (reminders ?? []).some((r) => {
+      const gap = Date.parse(p.created_at) - Date.parse(r.created_at);
+      return r.member_id === p.member_id && gap >= 0 && gap <= 14 * DAY;
+    }),
+  );
+  const recoveredTotal = recovered.reduce((s, p) => s + Number(p.amount), 0);
+  const members = (atRisk ?? []) as MemberStatus[];
+
+  return (
+    <div className="page gap-6">
+      <header>
+        <h1 className="heading">
+          {new Date(`${today}T12:00:00+08:00`).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}
+        </h1>
+        <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
+          <Stat label="Collected today" value={peso(summary.revenue)} />
+          <Stat label="Check-ins" value={summary.checkins} />
+          <Stat label="Walk-ins" value={summary.walkins} />
+          <Stat label="New members" value={summary.newMembers} />
+        </dl>
+        <p className="mt-3 text-plate-green">
+          <strong className="font-display text-xl">{peso(recoveredTotal)}</strong> recovered this month: {recovered.length} member
+          {recovered.length === 1 ? "" : "s"} renewed after a reminder.
+        </p>
+      </header>
+
+      {!!overrides && (
+        <Link href="/payments" className="block">
+          <Card className="edge-expiring px-4 hover:bg-muted">
+            {overrides} expired member{overrides === 1 ? " was" : "s were"} let in today by staff. Review on Payments.
+          </Card>
+        </Link>
+      )}
+
+      <section className="flex flex-col md:min-h-0 md:flex-1">
+        <h2 className="subheading mb-2">Follow up today</h2>
+        {members.length ? (
+          <ul className="fill-scroll space-y-2 md:pr-1">
+            {members.map((m) => (
+              <li key={m.id}>
+                <Card size="sm" className={`edge-${m.status} flex-row flex-wrap items-center gap-3 px-4`}>
+                  <Link href={`/members/${m.id}`} className="font-display text-lg font-semibold hover:underline">
+                    {m.name}
+                  </Link>
+                  <Badge variant={m.status}>{daysText(m.days_left!)}</Badge>
+                  <span className="ml-auto flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`sms:${m.phone}`}>
+                        <MessageSquareIcon /> Text
+                      </a>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`tel:${m.phone}`}>
+                        <PhoneIcon /> Call
+                      </a>
+                    </Button>
+                  </span>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">Nobody is expiring this week. Reminders go out automatically every night.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function daysText(d: number) {
+  if (d > 0) return `${d} day${d === 1 ? "" : "s"} left`;
+  if (d === 0) return "Expires today";
+  return `Expired ${-d} day${d === -1 ? "" : "s"} ago`;
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div>
+      <dt className="muted">{label}</dt>
+      <dd className="font-display text-3xl font-bold">{value}</dd>
     </div>
   );
 }

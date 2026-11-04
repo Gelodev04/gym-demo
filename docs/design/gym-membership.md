@@ -20,7 +20,7 @@ The system targets these three pains first. Every MVP feature should map to one 
 2. **QR check-in** — member shows QR (phone or printed card); front-desk tablet scans and shows photo + status (active / expiring / expired).
 3. **Payments** — cash recorded by staff; GCash/Maya via PayMongo payment links, recorded automatically by webhook. Paying extends the membership.
 4. **Cash accountability** — every payment logs staff, time, method. Payments are append-only; voids require owner approval. End-of-shift cash count vs. system total.
-5. **Expiry radar + reminders** — dashboard of expiring this week / expired not renewed. Auto SMS at 3 days before and on expiry day (Taglish templates).
+5. **Expiry radar + reminders** — dashboard of expiring this week / expired not renewed. Auto SMS once when 3 or fewer days are left, and once within 7 days after expiry (Taglish templates).
 6. **Owner daily summary** — at closing, SMS/notification with revenue, check-ins, new members, renewals, walk-ins.
 7. **Walk-ins / day passes** — record and charge single sessions.
 
