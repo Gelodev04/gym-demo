@@ -66,21 +66,21 @@ export function Scanner() {
   const r = result?.ok ? result : null;
   const m = r?.member;
   return (
-    <div className="space-y-4 md:max-h-full md:overflow-y-auto">
+    <div className="min-w-0 space-y-4 md:max-h-full md:overflow-y-auto">
       {m && (
         // key forces the landing animation on every new scan
-        <div key={`${m.id}-${r!.recorded}`} role="status" className={`land flex items-center gap-5 rounded-md p-5 ${STATUS_STYLE[m.status]}`}>
+        <div key={`${m.id}-${r!.recorded}`} role="status" className={`land flex items-center gap-4 rounded-md p-4 sm:gap-5 sm:p-5 ${STATUS_STYLE[m.status]}`}>
           {m.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={m.photo_url} alt="" className="h-32 w-32 shrink-0 rounded-md object-cover ring-4 ring-white/60" />
+            <img src={m.photo_url} alt="" className="size-20 shrink-0 rounded-md object-cover ring-4 ring-white/60 sm:size-32" />
           ) : (
-            <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-white/25 font-display text-6xl font-bold">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-md bg-white/25 font-display text-4xl font-bold sm:size-32 sm:text-6xl">
               {m.name[0]}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-5xl font-bold leading-none">{m.name}</p>
-            <p className="mt-2 text-xl font-medium">
+            <p className="font-display text-3xl leading-none font-bold break-words sm:text-5xl">{m.name}</p>
+            <p className="mt-2 text-base font-medium sm:text-xl">
               {m.status === "expired"
                 ? m.end_date
                   ? `Membership ended ${fmtDate(m.end_date)}`
@@ -92,7 +92,7 @@ export function Scanner() {
             {r!.recorded ? (
               <p className="mt-2 text-lg font-semibold">Checked in</p>
             ) : (
-              <Button size="lg" variant="outline" className="mt-3 border-white bg-white font-semibold text-plate-red" onClick={() => submit(m.qr_token, true)} disabled={pending}>
+              <Button size="lg" variant="outline" className="mt-3 h-auto min-h-11 border-white whitespace-normal bg-white font-semibold text-plate-red" onClick={() => submit(m.qr_token, true)} disabled={pending}>
                 Let in anyway (owner will see this)
               </Button>
             )}

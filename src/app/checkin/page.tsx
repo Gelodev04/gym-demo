@@ -29,7 +29,7 @@ async function Checkin() {
     .is("voided_at", null)
     .gte("created_at", phStartOf(phToday()));
   return (
-    <div className="grid gap-4 md:h-full md:min-h-0 md:grid-cols-[2fr_1fr] md:items-start">
+    <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-[2fr_1fr] md:items-start">
       <Scanner />
       <Card className="h-fit">
         <CardHeader>
